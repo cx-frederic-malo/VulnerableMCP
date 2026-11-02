@@ -8,8 +8,8 @@ services:
     image: integsec/vulnerable-mcp-server:latest
     container_name: vulnerable-mcp-server
     ports:
-      - "3000:3000"  # HTTP/SSE
-      - "3001:3001"  # WebSocket
+      - "127.0.0.1:3000:3000"  # HTTP/SSE (host loopback only)
+      - "127.0.0.1:3001:3001"  # WebSocket (host loopback only)
     environment:
       - NODE_ENV=production
       - FLAG_ENV_MASTER=FLAG{env_master}

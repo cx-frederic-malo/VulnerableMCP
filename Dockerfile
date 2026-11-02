@@ -11,8 +11,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (npm install, not npm ci: package-lock.json is gitignored)
+RUN npm install
 
 # Copy source code
 COPY src/ ./src/
@@ -33,8 +33,9 @@ ENV NODE_ENV=production
 ENV FLAG_ENV_MASTER=FLAG{env_master}
 ENV FLAG_RUG_PULL=FLAG{rug_pull_victim}
 
-# Run all transports by default
-CMD ["node", "dist/index.js", "--transport=all"]
+# Run all transports by default. Bind 0.0.0.0 inside the container so Docker
+# port forwarding works; docker-compose.yml restricts the host side to 127.0.0.1.
+CMD ["node", "dist/index.js", "--transport=all", "--allow-external-connections"]
 
 # Health check on HTTP endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
