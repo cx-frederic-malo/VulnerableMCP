@@ -4,6 +4,10 @@
 
 Created by **[IntegSec](https://integsec.com)** | License: [MIT](LICENSE)
 
+> **Checkmarx DAST quick start:** to scan this server with Checkmarx One DAST, see **[CHECKMARX_DAST.md](CHECKMARX_DAST.md)**.
+>
+> This repository is a fork of [IntegSec/VulnerableMCP](https://github.com/IntegSec/VulnerableMCP) with Docker fixes so `docker compose up -d` works out of the box.
+
 ---
 
 ## ⚠️ SECURITY WARNING ⚠️
@@ -71,8 +75,8 @@ The Vulnerable MCP Server is a comprehensive security testing platform that impl
 
 ```bash
 # Clone the repository
-git clone https://github.com/integsec/vulnerable-mcp-server
-cd vulnerable-mcp-server
+git clone https://github.com/cx-frederic-malo/VulnerableMCP.git
+cd VulnerableMCP
 
 # Install dependencies
 npm install
