@@ -10,12 +10,12 @@
  * - No request size limits
  */
 
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes, createHash, timingSafeEqual } from 'crypto';
 
 // ANSI Color codes
 const colors = {
@@ -462,7 +462,29 @@ export async function startHttpServer(allowExternal: boolean = false) {
   // Streamable HTTP transport (modern MCP Inspector compatible)
   const streamableSessions = new Map<string, { transport: StreamableHTTPServerTransport }>();
 
-  app.all('/mcp-streamable', async (req: Request, res: Response) => {
+  // Authentication for the streamable endpoint: bearer token from MCP_AUTH_TOKEN.
+  // If not configured, a random token is generated at startup (fail closed).
+  const configuredToken = process.env.MCP_AUTH_TOKEN;
+  const streamableAuthToken = configuredToken && configuredToken.length > 0
+    ? configuredToken
+    : randomBytes(32).toString('hex');
+  const generatedAuthToken = !(configuredToken && configuredToken.length > 0);
+  const expectedDigest = createHash('sha256').update(streamableAuthToken).digest();
+
+  const requireStreamableAuth = (req: Request, res: Response, next: NextFunction): void => {
+    const authHeader = req.headers.authorization;
+    const match = typeof authHeader === 'string' ? /^Bearer (.+)$/.exec(authHeader) : null;
+    // Hash both values so the constant-time comparison operates on equal-length buffers
+    const providedDigest = createHash('sha256').update(match ? match[1] : '').digest();
+    if (!match || !timingSafeEqual(providedDigest, expectedDigest)) {
+      res.setHeader('WWW-Authenticate', 'Bearer');
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    next();
+  };
+
+  app.all('/mcp-streamable', requireStreamableAuth, async (req: Request, res: Response) => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     if (sessionId && streamableSessions.has(sessionId)) {
@@ -535,6 +557,10 @@ export async function startHttpServer(allowExternal: boolean = false) {
       console.error(c('dim', '   ├─') + c('cyan', ' Inspector SSE: ') + c('brightCyan', `http://${displayHost}:${port}/sse`));
       console.error(c('dim', '   ├─') + c('cyan', ' Inspector HTTP: ') + c('brightCyan', `http://${displayHost}:${port}/mcp-streamable`));
       console.error(c('dim', '   └─') + c('cyan', ' Health check: ') + c('brightCyan', `http://${displayHost}:${port}/health`));
+      console.error(c('dim', '   └─') + c('cyan', ' /mcp-streamable requires header: ') + c('brightWhite', 'Authorization: Bearer <MCP_AUTH_TOKEN>'));
+      if (generatedAuthToken) {
+        console.error(c('brightYellow', '   MCP_AUTH_TOKEN not set; generated one-time token: ') + c('brightWhite', streamableAuthToken));
+      }
       console.error('');
       console.error(c('brightYellow', '   ⚠️  Vulnerabilities:'));
       console.error(c('yellow', '   • Using HTTP (not HTTPS) - vulnerable to MITM attacks'));
